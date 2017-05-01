@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 import scipy
 from sklearn.metrics import fbeta_score
+from sklearn.ensemble import RandomForestClassifier
 
 from PIL import Image
 
@@ -14,7 +15,7 @@ random.seed(random_seed)
 np.random.seed(random_seed)
 
 # Load data
-folderpath = '/Users/cloudlife/Desktop/kaggle/'
+folderpath = '/Users/cloudlife/GitHub/kaggleplanet/'
 train_path = folderpath+'train-jpg/'
 test_path = folderpath+'test-jpg/'
 train = pd.read_csv(folderpath+'train.csv')
@@ -126,32 +127,29 @@ for tags in tqdm(train.tags.values, miniters=1000):
     
 y = np.array(y_train, np.uint8)
 
-# An array of each statistic for each image as shown in extract_features()
+# A training array of each statistic for each image as shown in extract_features()
 print('X.shape = ' + str(X.shape))
-# An array of 0 or 1s to represent label
+# A training array of 0 or 1s to represent label
 print('y.shape = ' + str(y.shape))
+
+clf = RandomForestClassifier(n_estimators=100)
+clf = clf.fit(X, y)
 
 n_classes = y.shape[1]
 
+# A test array
 X_test = np.array(test_features.drop(['image_name', 'tags'], axis=1))
 
-# Train and predict with one-vs-all strategy
-y_pred = np.zeros((X_test.shape[0], n_classes))
+# Making predictions on test array
+y_test = []
+for test_chip in tqdm(X_test):
+    chip_result = clf.predict(test_chip.reshape(1,-1))
+    y_test.append(chip_result)
 
-# print('Training and making predictions')
-# for class_i in tqdm(range(n_classes), miniters=1): 
-#     model = xgb.XGBClassifier(max_depth=5, learning_rate=0.1, n_estimators=100, \
-#                               silent=True, objective='binary:logistic', nthread=-1, \
-#                               gamma=0, min_child_weight=1, max_delta_step=0, \
-#                               subsample=1, colsample_bytree=1, colsample_bylevel=1, \
-#                               reg_alpha=0, reg_lambda=1, scale_pos_weight=1, \
-#                               base_score=0.5, seed=random_seed, missing=None)
-#     model.fit(X, y[:, class_i])
-#     y_pred[:, class_i] = model.predict_proba(X_test)[:, 1]
+preds = [' '.join(labels[y_pred_row[0] > 0.2]) for y_pred_row in y_test]
 
-# preds = [' '.join(labels[y_pred_row > 0.2]) for y_pred_row in y_pred]
-
-# subm = pd.DataFrame()
-# subm['image_name'] = test_features.image_name.values
-# subm['tags'] = preds
-# subm.to_csv('submission.csv', index=False)
+#Outputting predictions to csv
+subm = pd.DataFrame()
+subm['image_name'] = test_features.image_name.values
+subm['tags'] = preds
+subm.to_csv(folderpath+'submission.csv', index=False)
