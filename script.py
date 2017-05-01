@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 import scipy
 from sklearn.metrics import fbeta_score
+from sklearn.metrics import f1_score
 from sklearn.ensemble import RandomForestClassifier
 
 from PIL import Image
@@ -132,24 +133,46 @@ print('X.shape = ' + str(X.shape))
 # A training array of 0 or 1s to represent label
 print('y.shape = ' + str(y.shape))
 
+# Splitting training set into training and validation set
+idx_split1 = int( len(X) * 0.60) # splits training into 60% training, 20% validation, and 20% test set
+idx_split2 = int( len(X) * 0.80) # splits training into 60% training, 20% validation, and 20% test set
+
+X_training = X[: idx_split1]
+y_training = y[: idx_split1]
+
+X_validation = X[idx_split1: idx_split2]
+y_validation = y[idx_split1: idx_split2]
+
+X_test = X[idx_split2:]
+y_test = y[idx_split2:]
+
 clf = RandomForestClassifier(n_estimators=100)
-clf = clf.fit(X, y)
 
-n_classes = y.shape[1]
+clf = clf.fit(X_training, y_training)
 
-# A test array
-X_test = np.array(test_features.drop(['image_name', 'tags'], axis=1))
+print('Validation Set Weighted F1 Scores')
+y_validation_prediction = [ clf.predict(test_chip.reshape(1,-1))[0] for test_chip in tqdm(X_validation) ]
+f1_validation = f1_score(y_validation, np.array(y_validation_prediction).astype(int), average='weighted' )
+print(f1_validation)
 
-# Making predictions on test array
-y_test = []
-for test_chip in tqdm(X_test):
-    chip_result = clf.predict(test_chip.reshape(1,-1))
-    y_test.append(chip_result)
 
-preds = [' '.join(labels[y_pred_row[0] > 0.2]) for y_pred_row in y_test]
+print('Test Set Weighted F1 Scores')
+y_test_prediction = [ clf.predict(test_chip.reshape(1,-1))[0] for test_chip in tqdm(X_test) ]
+f1_test = f1_score(y_test, np.array(y_test_prediction).astype(int), average='weighted' )
+print(f1_test)
 
-#Outputting predictions to csv
-subm = pd.DataFrame()
-subm['image_name'] = test_features.image_name.values
-subm['tags'] = preds
-subm.to_csv(folderpath+'submission.csv', index=False)
+
+
+# # Making Final Predictions using all training data
+# clf = clf.fit(X, y)
+
+# X_predictions = np.array(test_features.drop(['image_name', 'tags'], axis=1))
+# y_predictions = [ clf.predict(test_chip.reshape(1,-1)) for test_chip in tqdm(X_predictions) ]
+
+# preds = [' '.join(labels[y_pred_row[0] > 0.2]) for y_pred_row in y_predictions]
+
+# #Outputting predictions to csv
+# subm = pd.DataFrame()
+# subm['image_name'] = test_features.image_name.values
+# subm['tags'] = preds
+# subm.to_csv(folderpath+'submission.csv', index=False)
