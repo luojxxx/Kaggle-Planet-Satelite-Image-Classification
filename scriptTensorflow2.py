@@ -166,9 +166,9 @@ with graph.as_default():
     optimizer = tf.train.GradientDescentOptimizer(0.05).minimize(loss)
 
     # Predictions for the training, validation, and test data.
-    train_prediction = tf.nn.softmax(logits)
-    valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
-    test_prediction = tf.nn.softmax(model(tf_test_dataset))
+    train_prediction = tf.nn.sigmoid(logits)
+    valid_prediction = tf.nn.sigmoid(model(tf_valid_dataset))
+    test_prediction = tf.nn.sigmoid(model(tf_test_dataset))
     # submit_prediction = tf.nn.softmax(model(tf_submit_dataset))
 
 
@@ -225,7 +225,7 @@ with tf.Session(graph=graph) as session:
             print('Minibatch loss at step %d: %f' % (step, l))
             print('Minibatch accuracy: %.3f%%' % accuracy(predictions, batch_labels))
             print('Validation accuracy: %.3f%%' % accuracy(valid_prediction.eval(), valid_labels))
-            print('Test accuracy: %.3f%%' % accuracy(test_prediction.eval(), test_labels))
+        print('Test accuracy: %.3f%%' % accuracy(test_prediction.eval(), test_labels))
 
     saver = tf.train.Saver()
     saver.save(session, folderpath+'my-model')
