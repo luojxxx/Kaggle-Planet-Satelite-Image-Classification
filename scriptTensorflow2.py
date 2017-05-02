@@ -135,7 +135,7 @@ with graph.as_default():
     tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
     tf_valid_dataset = tf.constant(valid_dataset)
     tf_test_dataset = tf.constant(test_dataset)
-    tf_submit_dataset = tf.constant(submit_dataset)
+    # tf_submit_dataset = tf.constant(submit_dataset)
 
     # Variables.
     layer1_weights = tf.Variable(tf.truncated_normal( [patch_size, patch_size, num_channels, depth], stddev=0.1))
@@ -169,7 +169,7 @@ with graph.as_default():
     train_prediction = tf.nn.softmax(logits)
     valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
     test_prediction = tf.nn.softmax(model(tf_test_dataset))
-    submit_prediction = tf.nn.softmax(model(tf_submit_dataset))
+    # submit_prediction = tf.nn.softmax(model(tf_submit_dataset))
 
 
 # Running network
@@ -184,7 +184,6 @@ def accuracyMCMO(predictions, labels):
     total = len(labels) * len(labels[0])
     return count/total
 def accuracy(predictions, labels):
-    # return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
     formatPredictions = []
     for row in predictions:
         tempRow = []
@@ -210,7 +209,7 @@ def accuracy(predictions, labels):
     # pickle.dump(formatLabels, open( folderpath+'labels' , 'wb'))
     # print('done')
 
-    return accuracyMCMO(formatPredictions, formatLabels)
+    return accuracyMCMO(formatPredictions, formatLabels) * 100
 
 
 with tf.Session(graph=graph) as session:
@@ -231,30 +230,27 @@ with tf.Session(graph=graph) as session:
     saver = tf.train.Saver()
     saver.save(session, folderpath+'my-model')
 
-    submission_results = submit_prediction.eval()
-    pickle.dump(submission_results, open(folderpath+'submission', 'wb'))
+    # submission_results = submit_prediction.eval()
+    # pickle.dump(submission_results, open(folderpath+'submission', 'wb'))
 
 # with tf.Session(graph=graph) as session:
 #     saver = tf.train.Saver()
 #     saver.restore(session, folderpath+'my-model')
 
 
-
-# ['selective_logging', 'conventional_mine', 'partly_cloudy',
-#        'artisinal_mine', 'haze', 'slash_burn', 'primary', 'clear',
-#        'bare_ground', 'blooming', 'water', 'road', 'cloudy', 'habitation',
-#        'agriculture', 'blow_down', 'cultivation']
-
-
 # Making Final Predictions using all training data
-print('Predicting')
+print('Outputting Predictions')
 y_predictions = pickle.load(open(folderpath+'submission', 'rb'))
-
 preds = [' '.join( [labels[idx] for idx, val in enumerate(y_pred_row) if val > 0.9] ) for y_pred_row in y_predictions]
 
-#Outputting predictions to csv
+# Outputting predictions to csv
 subm = pd.DataFrame()
 subm['image_name'] = test.image_name.values
 subm['tags'] = preds
 subm.to_csv(folderpath+'submission.csv', index=False)
 
+
+# ['selective_logging', 'conventional_mine', 'partly_cloudy',
+#        'artisinal_mine', 'haze', 'slash_burn', 'primary', 'clear',
+#        'bare_ground', 'blooming', 'water', 'road', 'cloudy', 'habitation',
+#        'agriculture', 'blow_down', 'cultivation']
