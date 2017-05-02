@@ -40,7 +40,7 @@ def get_raw(df, data_path):
         # im = np.hstack( ( im[:,:,0].ravel(), im[:,:,1].ravel(), im[:,:,2].ravel() ))
         rgb.append( im )
 
-    return rgb
+    return np.array(rgb)
 
 def splitSet(dataset, split1, split2):
     idx_split1 = int( len(dataset) * split1)
@@ -50,18 +50,22 @@ def splitSet(dataset, split1, split2):
     validation = dataset[idx_split1:idx_split2]
     test = dataset[idx_split2:] 
 
-    return [ np.array(training) , np.array(validation), np.array(test) ]
+    return [ training , validation, test ]
 
 # Extract training and test set
 print('Setup Dataset')
 rerun = False
 
 saveImgRawPath = folderpath+'pickleImgRaw'
+saveSubmissionImgRawPath = folderpath+'pickleImgRawSubmission'
 if rerun == True or not os.path.isfile(saveImgRawPath):
     train_ImgRaw = get_raw(train, train_path)
+    submission_ImgRaw = get_raw(test, test_path)
     pickle.dump(train_ImgRaw, open( saveImgRawPath , 'wb'))
+    pickle.dump(submission_ImgRaw, open( saveSubmissionImgRawPath , 'wb'))
 else:
     train_ImgRaw = pickle.load(open(saveImgRawPath, 'rb'))
+    submission_ImgRaw = pickle.load(open(saveSubmissionImgRawPath, 'rb'))
 
 print('Setup Dataset Labels')
 y_train = []
@@ -102,17 +106,19 @@ image_size = 64
 num_labels = 17
 num_channels = 3 # rgb
 
-def reformat(dataset, labels):
+def reformat(dataset):
     dataset = dataset.reshape( (-1, image_size, image_size, num_channels)).astype(np.float32)
     # labels = (np.arange(num_labels) == labels[:,None]).astype(np.float32)
-    return dataset, labels
+    return dataset
 
-train_dataset, train_labels = reformat(train_dataset, train_labels)
-valid_dataset, valid_labels = reformat(valid_dataset, valid_labels)
-test_dataset, test_labels = reformat(test_dataset, test_labels)
+train_dataset, train_labels = [reformat(train_dataset), train_labels ]
+valid_dataset, valid_labels = [reformat(valid_dataset), valid_labels ]
+test_dataset, test_labels = [reformat(test_dataset), test_labels ]
+submit_dataset = reformat(submission_ImgRaw)
 print('Training set', train_dataset.shape, train_labels.shape)
 print('Validation set', valid_dataset.shape, valid_labels.shape)
 print('Test set', test_dataset.shape, test_labels.shape)
+print('Submission set', submit_dataset.shape)
 
 
 # Setting up network
@@ -129,6 +135,7 @@ with graph.as_default():
     tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
     tf_valid_dataset = tf.constant(valid_dataset)
     tf_test_dataset = tf.constant(test_dataset)
+    tf_submit_dataset = tf.constant(submit_dataset)
 
     # Variables.
     layer1_weights = tf.Variable(tf.truncated_normal( [patch_size, patch_size, num_channels, depth], stddev=0.1))
@@ -162,10 +169,11 @@ with graph.as_default():
     train_prediction = tf.nn.softmax(logits)
     valid_prediction = tf.nn.softmax(model(tf_valid_dataset))
     test_prediction = tf.nn.softmax(model(tf_test_dataset))
+    submit_prediction = tf.nn.softmax(model(tf_submit_dataset))
 
 
 # Running network
-num_steps = 1001
+num_steps = 201
 
 def accuracyMCMO(predictions, labels):
     count = 0
@@ -204,6 +212,7 @@ def accuracy(predictions, labels):
 
     return accuracyMCMO(formatPredictions, formatLabels)
 
+
 with tf.Session(graph=graph) as session:
     tf.global_variables_initializer().run()
     print('Initialized')
@@ -219,6 +228,17 @@ with tf.Session(graph=graph) as session:
             print('Validation accuracy: %.3f%%' % accuracy(valid_prediction.eval(), valid_labels))
             print('Test accuracy: %.3f%%' % accuracy(test_prediction.eval(), test_labels))
 
+    saver = tf.train.Saver()
+    saver.save(session, folderpath+'my-model')
+
+    submission_results = submit_prediction.eval()
+    pickle.dump(submission_results, open(folderpath+'submission', 'wb'))
+
+# with tf.Session(graph=graph) as session:
+#     saver = tf.train.Saver()
+#     saver.restore(session, folderpath+'my-model')
+
+
 
 # ['selective_logging', 'conventional_mine', 'partly_cloudy',
 #        'artisinal_mine', 'haze', 'slash_burn', 'primary', 'clear',
@@ -226,22 +246,15 @@ with tf.Session(graph=graph) as session:
 #        'agriculture', 'blow_down', 'cultivation']
 
 
-# # Making Final Predictions using all training data
-# print('Extracting test features')
-# test_features = get_Image(test, test_path)
+# Making Final Predictions using all training data
+print('Predicting')
+y_predictions = pickle.load(open(folderpath+'submission', 'rb'))
 
-# print('Training')
-# clf = clf.fit(X, y)
+preds = [' '.join( [labels[idx] for idx, val in enumerate(y_pred_row) if val > 0.9] ) for y_pred_row in y_predictions]
 
-# print('Predicting')
-# X_predictions = np.array(test_features.drop(['image_name', 'tags'], axis=1))
-# y_predictions = [ clf.predict(test_chip.reshape(1,-1)) for test_chip in tqdm(X_predictions) ]
-
-# preds = [' '.join(labels[y_pred_row[0] > 0.2]) for y_pred_row in y_predictions]
-
-# #Outputting predictions to csv
-# subm = pd.DataFrame()
-# subm['image_name'] = test_features.image_name.values
-# subm['tags'] = preds
-# subm.to_csv(folderpath+'submission.csv', index=False)
+#Outputting predictions to csv
+subm = pd.DataFrame()
+subm['image_name'] = test.image_name.values
+subm['tags'] = preds
+subm.to_csv(folderpath+'submission.csv', index=False)
 
