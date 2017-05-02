@@ -79,26 +79,28 @@ for tags in tqdm(train.tags.values, miniters=1000):
     y_train.append(targets)
     
 y = np.array(y_train, np.float32)
+# y = y[:,2]
+# y = np.array( [ np.array([i]) for i in y ])
 
 # Splitting training set into training and validation set
-from sklearn.datasets import load_digits
-data = load_digits()
-train_ImgRaw = data.data
-
-y = []
-for label in data.target:
-    arr = np.zeros(10)
-    arr[label] = 1
-    y.append(arr)
-
-y = np.array(y)
+# ~~ test data ~~
+# from sklearn.datasets import load_digits
+# data = load_digits()
+# train_ImgRaw = data.data
+# y = []
+# for label in data.target:
+#     arr = np.zeros(10)
+#     arr[label] = 1
+#     y.append(arr)
+# y = np.array(y)
+# ~~ test data ~~
 
 train_dataset, valid_dataset, test_dataset = splitSet(train_ImgRaw, 0.6, 0.8)
 train_labels, valid_labels, test_labels = splitSet(y, 0.6, 0.8)
 
-image_size = 8
-num_labels = 10
-num_channels = 1 # rgb
+image_size = 64
+num_labels = 17
+num_channels = 3 # rgb
 
 def reformat(dataset, labels):
     dataset = dataset.reshape( (-1, image_size, image_size, num_channels)).astype(np.float32)
@@ -151,7 +153,7 @@ with graph.as_default():
 
     # Training computation.
     logits = model(tf_train_dataset)
-    loss = tf.reduce_mean( tf.nn.softmax_cross_entropy_with_logits(labels=tf_train_labels, logits=logits))
+    loss = tf.reduce_mean( tf.nn.sigmoid_cross_entropy_with_logits(labels=tf_train_labels, logits=logits))
 
     # Optimizer.
     optimizer = tf.train.GradientDescentOptimizer(0.05).minimize(loss)
@@ -165,8 +167,42 @@ with graph.as_default():
 # Running network
 num_steps = 1001
 
+def accuracyMCMO(predictions, labels):
+    count = 0
+    for rowIdx, rowVal in enumerate(labels):
+        for eleIdx, eleVal in enumerate(rowVal):
+            if labels[rowIdx][eleIdx] == predictions[rowIdx][eleIdx]:
+                count+=1
+    total = len(labels) * len(labels[0])
+    return count/total
 def accuracy(predictions, labels):
-    return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
+    # return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
+    formatPredictions = []
+    for row in predictions:
+        tempRow = []
+        for ele in row:
+            if ele > 0.9:
+                tempRow.append(1)
+            else:
+                tempRow.append(0)
+        formatPredictions.append(tempRow)
+
+    formatLabels = []
+    for row in labels:
+        tempRow = []
+        for ele in row:
+            if ele > 0.9:
+                tempRow.append(1)
+            else:
+                tempRow.append(0)
+        formatLabels.append(tempRow)
+
+    # print('dump')
+    # pickle.dump(formatPredictions, open( folderpath+'pred' , 'wb'))
+    # pickle.dump(formatLabels, open( folderpath+'labels' , 'wb'))
+    # print('done')
+
+    return accuracyMCMO(formatPredictions, formatLabels)
 
 with tf.Session(graph=graph) as session:
     tf.global_variables_initializer().run()
@@ -179,9 +215,9 @@ with tf.Session(graph=graph) as session:
         _, l, predictions = session.run( [optimizer, loss, train_prediction], feed_dict=feed_dict)
         if (step % 50 == 0):
             print('Minibatch loss at step %d: %f' % (step, l))
-            print('Minibatch accuracy: %.1f%%' % accuracy(predictions, batch_labels))
-            print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
-            print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
+            print('Minibatch accuracy: %.3f%%' % accuracy(predictions, batch_labels))
+            print('Validation accuracy: %.3f%%' % accuracy(valid_prediction.eval(), valid_labels))
+            print('Test accuracy: %.3f%%' % accuracy(test_prediction.eval(), test_labels))
 
 
 # ['selective_logging', 'conventional_mine', 'partly_cloudy',
