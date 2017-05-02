@@ -81,12 +81,24 @@ for tags in tqdm(train.tags.values, miniters=1000):
 y = np.array(y_train, np.float32)
 
 # Splitting training set into training and validation set
+from sklearn.datasets import load_digits
+data = load_digits()
+train_ImgRaw = data.data
+
+y = []
+for label in data.target:
+    arr = np.zeros(10)
+    arr[label] = 1
+    y.append(arr)
+
+y = np.array(y)
+
 train_dataset, valid_dataset, test_dataset = splitSet(train_ImgRaw, 0.6, 0.8)
 train_labels, valid_labels, test_labels = splitSet(y, 0.6, 0.8)
 
-image_size = 64
-num_labels = 17
-num_channels = 3 # rgb
+image_size = 8
+num_labels = 10
+num_channels = 1 # rgb
 
 def reformat(dataset, labels):
     dataset = dataset.reshape( (-1, image_size, image_size, num_channels)).astype(np.float32)
@@ -154,7 +166,7 @@ with graph.as_default():
 num_steps = 1001
 
 def accuracy(predictions, labels):
-    return 0.50
+    return (100.0 * np.sum(np.argmax(predictions, 1) == np.argmax(labels, 1))/ predictions.shape[0])
 
 with tf.Session(graph=graph) as session:
     tf.global_variables_initializer().run()
@@ -170,7 +182,12 @@ with tf.Session(graph=graph) as session:
             print('Minibatch accuracy: %.1f%%' % accuracy(predictions, batch_labels))
             print('Validation accuracy: %.1f%%' % accuracy(valid_prediction.eval(), valid_labels))
             print('Test accuracy: %.1f%%' % accuracy(test_prediction.eval(), test_labels))
-            pickle.dump(test_prediction.eval(), open('/Users/cloudlife/GitHub/kaggleplanet/predpk', 'wb'))
+
+
+# ['selective_logging', 'conventional_mine', 'partly_cloudy',
+#        'artisinal_mine', 'haze', 'slash_burn', 'primary', 'clear',
+#        'bare_ground', 'blooming', 'water', 'road', 'cloudy', 'habitation',
+#        'agriculture', 'blow_down', 'cultivation']
 
 
 # # Making Final Predictions using all training data
