@@ -105,6 +105,7 @@ train_labels, valid_labels, test_labels = splitSet(y, 0.6, 0.8)
 image_size = 64
 num_labels = 17
 num_channels = 3 # rgb
+confidence_cutoff = 0.5 # what confidence to consider prediction as part of class
 
 def reformat(dataset):
     dataset = dataset.reshape( (-1, image_size, image_size, num_channels)).astype(np.float32)
@@ -135,7 +136,6 @@ with graph.as_default():
     tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
     tf_valid_dataset = tf.constant(valid_dataset)
     tf_test_dataset = tf.constant(test_dataset)
-    # tf_submit_dataset = tf.constant(submit_dataset)
 
     # Variables.
     layer1_weights = tf.Variable(tf.truncated_normal( [patch_size, patch_size, num_channels, depth], stddev=0.1))
@@ -169,7 +169,6 @@ with graph.as_default():
     train_prediction = tf.nn.sigmoid(logits)
     valid_prediction = tf.nn.sigmoid(model(tf_valid_dataset))
     test_prediction = tf.nn.sigmoid(model(tf_test_dataset))
-    # submit_prediction = tf.nn.softmax(model(tf_submit_dataset))
 
 
 # Running network
@@ -177,18 +176,23 @@ num_steps = 201
 
 def accuracyMCMO(predictions, labels):
     count = 0
+    total = 0
     for rowIdx, rowVal in enumerate(labels):
         for eleIdx, eleVal in enumerate(rowVal):
-            if labels[rowIdx][eleIdx] == predictions[rowIdx][eleIdx]:
-                count+=1
-    total = len(labels) * len(labels[0])
+            if labels[rowIdx][eleIdx] == 1:
+                total += 1
+
+                if labels[rowIdx][eleIdx] == predictions[rowIdx][eleIdx]:
+                    count+=1
+
     return count/total
+
 def accuracy(predictions, labels):
     formatPredictions = []
     for row in predictions:
         tempRow = []
         for ele in row:
-            if ele > 0.9:
+            if ele > confidence_cutoff:
                 tempRow.append(1)
             else:
                 tempRow.append(0)
@@ -198,7 +202,7 @@ def accuracy(predictions, labels):
     for row in labels:
         tempRow = []
         for ele in row:
-            if ele > 0.9:
+            if ele > confidence_cutoff:
                 tempRow.append(1)
             else:
                 tempRow.append(0)
@@ -208,6 +212,9 @@ def accuracy(predictions, labels):
     # pickle.dump(formatPredictions, open( folderpath+'pred' , 'wb'))
     # pickle.dump(formatLabels, open( folderpath+'labels' , 'wb'))
     # print('done')
+    # print(formatPredictions)
+    # print('')
+    # print(formatLabels)
 
     return accuracyMCMO(formatPredictions, formatLabels) * 100
 
@@ -225,7 +232,10 @@ with tf.Session(graph=graph) as session:
             print('Minibatch loss at step %d: %f' % (step, l))
             print('Minibatch accuracy: %.3f%%' % accuracy(predictions, batch_labels))
             print('Validation accuracy: %.3f%%' % accuracy(valid_prediction.eval(), valid_labels))
-        print('Test accuracy: %.3f%%' % accuracy(test_prediction.eval(), test_labels))
+    
+    test_results = test_prediction.eval()
+    print('Test accuracy: %.3f%%' % accuracy(test_results, test_labels))
+    pickle.dump(test_results, open(folderpath+'test_results', 'wb'))
 
     saver = tf.train.Saver()
     saver.save(session, folderpath+'my-model')
@@ -233,21 +243,28 @@ with tf.Session(graph=graph) as session:
     # submission_results = submit_prediction.eval()
     # pickle.dump(submission_results, open(folderpath+'submission', 'wb'))
 
+
+# # Running Model on Submission Set
+# print('Evaluating Submission Set')
 # with tf.Session(graph=graph) as session:
 #     saver = tf.train.Saver()
 #     saver.restore(session, folderpath+'my-model')
 
+#     tf_submit_dataset = tf.constant(submit_dataset)
+#     submit_prediction = tf.nn.sigmoid(model(tf_submit_dataset))
+#     submission = submit_prediction.eval()
+#     pickle.dump(submission, open(folderpath+'submission', 'wb'))
 
-# Making Final Predictions using all training data
-print('Outputting Predictions')
-y_predictions = pickle.load(open(folderpath+'submission', 'rb'))
-preds = [' '.join( [labels[idx] for idx, val in enumerate(y_pred_row) if val > 0.9] ) for y_pred_row in y_predictions]
 
-# Outputting predictions to csv
-subm = pd.DataFrame()
-subm['image_name'] = test.image_name.values
-subm['tags'] = preds
-subm.to_csv(folderpath+'submission.csv', index=False)
+# # Outputting Predictions to Csv
+# print('Outputting Predictions')
+# y_predictions = pickle.load(open(folderpath+'submission', 'rb'))
+# preds = [' '.join( [labels[idx] for idx, val in enumerate(y_pred_row) if val > confidence_cutoff] ) for y_pred_row in y_predictions]
+
+# subm = pd.DataFrame()
+# subm['image_name'] = test.image_name.values
+# subm['tags'] = preds
+# subm.to_csv(folderpath+'submission.csv', index=False)
 
 
 # ['selective_logging', 'conventional_mine', 'partly_cloudy',
