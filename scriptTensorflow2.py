@@ -31,12 +31,10 @@ def get_raw(df, data_path):
     im_features = df.copy()
 
     rgb = []
-
     for image_name in tqdm(im_features.image_name.values, miniters=1000): 
         im = Image.open(data_path + image_name + '.jpg')
         im = im.resize((64,64))
         im = np.array(im)[:,:,:3]
-
         # im = np.hstack( ( im[:,:,0].ravel(), im[:,:,1].ravel(), im[:,:,2].ravel() ))
         rgb.append( im )
 
@@ -240,9 +238,6 @@ with tf.Session(graph=graph) as session:
     saver = tf.train.Saver()
     saver.save(session, folderpath+'my-model')
 
-    # submission_results = submit_prediction.eval()
-    # pickle.dump(submission_results, open(folderpath+'submission', 'wb'))
-
 
 # # Running Model on Submission Set
 # print('Evaluating Submission Set')
@@ -267,7 +262,29 @@ with tf.Session(graph=graph) as session:
 # subm.to_csv(folderpath+'submission.csv', index=False)
 
 
+# Labels 
 # ['selective_logging', 'conventional_mine', 'partly_cloudy',
 #        'artisinal_mine', 'haze', 'slash_burn', 'primary', 'clear',
 #        'bare_ground', 'blooming', 'water', 'road', 'cloudy', 'habitation',
 #        'agriculture', 'blow_down', 'cultivation']
+
+
+# Analytics
+def getLabelDistribution(labels, labelNameArray=None):
+    labelCount = [ np.sum(labels[:,i]) for i in range(0, len(labels[0])) ]
+    if labelNameArray == None:
+        return labelCount
+    else:
+        labelNameCount = {key: val for key, val in zip(labelNameArray, labelCount)}
+        return labelCount, labelNameCount
+
+# Training set label distribution
+# {'slash_burn': 209.0, 'blooming': 332.0, 'water': 7262.0, 'cloudy': 2330.0, 'selective_logging': 340.0,
+#  'road': 8076.0, 'primary': 37840.0, 'clear': 28203.0, 'haze': 2695.0, 'agriculture': 12338.0, 'cultivation': 4477.0, 
+#  'partly_cloudy': 7251.0, 'bare_ground': 859.0, 'conventional_mine': 100.0, 'artisinal_mine': 339.0, 
+#  'habitation': 3662.0, 'blow_down': 98.0}
+
+# Potential additions edge and line analysis can be combined with RGB statistics.
+# Canny edge analysis and count how many 1s are there.
+# Line edge analysis and count how many 1s are there.
+# Corner analysis and count how many 1s are there.
