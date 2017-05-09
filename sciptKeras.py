@@ -317,17 +317,6 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.optimizers import SGD
 from keras.callbacks import ModelCheckpoint
 
-# model = Sequential()
-# model.add(Dense(units=64, input_dim=21))
-# model.add(Activation('relu'))
-# model.add(Dense(units=64, input_dim=64))
-# model.add(Activation('relu'))
-# model.add(Dense(units=17))
-# model.add(Activation('sigmoid'))
-# sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-# model.compile(loss='binary_crossentropy', optimizer=sgd, metrics=['accuracy'])
-# model.fit(train_dataset, train_labels, epochs=30, batch_size=128)
-
 model = Sequential()
 model.add(Conv2D(32, kernel_size=(3, 3),padding='same',input_shape=( 64,64,1)))
 model.add(Activation('relu'))
@@ -456,6 +445,17 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
+assert_label = [
+[0,0,0],
+[0,1,0],
+[0,1,0]
+]
+
+assert_pred = [
+[0,0,0],
+[0,0,1],
+[1,1,0]
+]
 
 # Labels 
 # ['selective_logging', 'conventional_mine', 'partly_cloudy',
@@ -469,191 +469,6 @@ plt.show()
 #  'partly_cloudy': 7251.0, 'bare_ground': 859.0, 'conventional_mine': 100.0, 'artisinal_mine': 339.0, 
 #  'habitation': 3662.0, 'blow_down': 98.0}
 
-
-
-
-
-
-
-
-###### TENSORFLOW NN ######
-
-# # Splitting training set into training and validation set
-# # ~~ test data ~~
-# # from sklearn.datasets import load_digits
-# # data = load_digits()
-# # train_ImgRaw = data.data
-# # y = []
-# # for label in data.target:
-# #     arr = np.zeros(10)
-# #     arr[label] = 1
-# #     y.append(arr)
-# # y = np.array(y)
-# # ~~ test data ~~
-
-# train_dataset, valid_dataset, test_dataset = splitSet(train_ImgRaw, 0.6, 0.8)
-# train_labels, valid_labels, test_labels = splitSet(y, 0.6, 0.8)
-
-# image_size = 64
-# num_labels = 17
-# num_channels = 3 # rgb
-# confidence_cutoff = 0.5 # what confidence to consider prediction as part of class
-
-# def reformat(dataset):
-#     dataset = dataset.reshape( (-1, image_size, image_size, num_channels)).astype(np.float32)
-#     # labels = (np.arange(num_labels) == labels[:,None]).astype(np.float32)
-#     return dataset
-
-# train_dataset, train_labels = [reformat(train_dataset), train_labels ]
-# valid_dataset, valid_labels = [reformat(valid_dataset), valid_labels ]
-# test_dataset, test_labels = [reformat(test_dataset), test_labels ]
-# submit_dataset = reformat(submission_ImgRaw)
-# print('Training set', train_dataset.shape, train_labels.shape)
-# print('Validation set', valid_dataset.shape, valid_labels.shape)
-# print('Test set', test_dataset.shape, test_labels.shape)
-# print('Submission set', submit_dataset.shape)
-
-
-# # Setting up network
-# batch_size = 16
-# patch_size = 5
-# depth = 16
-# num_hidden = 64
-
-# graph = tf.Graph()
-
-# with graph.as_default():
-#     # Input data.
-#     tf_train_dataset = tf.placeholder( tf.float32, shape=(batch_size, image_size, image_size, num_channels))
-#     tf_train_labels = tf.placeholder(tf.float32, shape=(batch_size, num_labels))
-#     tf_valid_dataset = tf.constant(valid_dataset)
-#     tf_test_dataset = tf.constant(test_dataset)
-
-#     # Variables.
-#     layer1_weights = tf.Variable(tf.truncated_normal( [patch_size, patch_size, num_channels, depth], stddev=0.1))
-#     layer1_biases = tf.Variable(tf.zeros([depth]))
-#     layer2_weights = tf.Variable(tf.truncated_normal( [patch_size, patch_size, depth, depth], stddev=0.1))
-#     layer2_biases = tf.Variable(tf.constant(1.0, shape=[depth]))
-#     layer3_weights = tf.Variable(tf.truncated_normal( [image_size // 4 * image_size // 4 * depth, num_hidden], stddev=0.1))
-#     layer3_biases = tf.Variable(tf.constant(1.0, shape=[num_hidden]))
-#     layer4_weights = tf.Variable(tf.truncated_normal( [num_hidden, num_labels], stddev=0.1))
-#     layer4_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
-
-#     # Model.
-#     def model(data):
-#         conv = tf.nn.conv2d(data, layer1_weights, [1, 2, 2, 1], padding='SAME')
-#         hidden = tf.nn.relu(conv + layer1_biases)
-#         conv = tf.nn.conv2d(hidden, layer2_weights, [1, 2, 2, 1], padding='SAME')
-#         hidden = tf.nn.relu(conv + layer2_biases)
-#         shape = hidden.get_shape().as_list()
-#         reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
-#         hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
-#         return tf.matmul(hidden, layer4_weights) + layer4_biases
-
-#     # Training computation.
-#     logits = model(tf_train_dataset)
-#     loss = tf.reduce_mean( tf.nn.sigmoid_cross_entropy_with_logits(labels=tf_train_labels, logits=logits))
-
-#     # Optimizer.
-#     optimizer = tf.train.GradientDescentOptimizer(0.05).minimize(loss)
-
-#     # Predictions for the training, validation, and test data.
-#     train_prediction = tf.nn.sigmoid(logits)
-#     valid_prediction = tf.nn.sigmoid(model(tf_valid_dataset))
-#     test_prediction = tf.nn.sigmoid(model(tf_test_dataset))
-
-
-# # Running network
-# num_steps = 201
-
-# def accuracyMCMO(predictions, labels):
-#     count = 0
-#     total = 0
-#     for rowIdx, rowVal in enumerate(labels):
-#         for eleIdx, eleVal in enumerate(rowVal):
-#             if labels[rowIdx][eleIdx] == 1:
-#                 total += 1
-
-#                 if labels[rowIdx][eleIdx] == predictions[rowIdx][eleIdx]:
-#                     count+=1
-
-#     return count/total
-
-# def accuracy(predictions, labels):
-#     formatPredictions = []
-#     for row in predictions:
-#         tempRow = []
-#         for ele in row:
-#             if ele > confidence_cutoff:
-#                 tempRow.append(1)
-#             else:
-#                 tempRow.append(0)
-#         formatPredictions.append(tempRow)
-
-#     formatLabels = []
-#     for row in labels:
-#         tempRow = []
-#         for ele in row:
-#             if ele > confidence_cutoff:
-#                 tempRow.append(1)
-#             else:
-#                 tempRow.append(0)
-#         formatLabels.append(tempRow)
-
-#     # print('dump')
-#     # pickle.dump(formatPredictions, open( folderpath+'pred' , 'wb'))
-#     # pickle.dump(formatLabels, open( folderpath+'labels' , 'wb'))
-#     # print('done')
-#     # print(formatPredictions)
-#     # print('')
-#     # print(formatLabels)
-
-#     return accuracyMCMO(formatPredictions, formatLabels) * 100
-
-
-# with tf.Session(graph=graph) as session:
-#     tf.global_variables_initializer().run()
-#     print('Initialized')
-#     for step in range(num_steps):
-#         offset = (step * batch_size) % (train_labels.shape[0] - batch_size)
-#         batch_data = train_dataset[offset:(offset + batch_size), :, :, :]
-#         batch_labels = train_labels[offset:(offset + batch_size), :]
-#         feed_dict = {tf_train_dataset : batch_data, tf_train_labels : batch_labels}
-#         _, l, predictions = session.run( [optimizer, loss, train_prediction], feed_dict=feed_dict)
-#         if (step % 50 == 0):
-#             print('Minibatch loss at step %d: %f' % (step, l))
-#             print('Minibatch accuracy: %.3f%%' % accuracy(predictions, batch_labels))
-#             print('Validation accuracy: %.3f%%' % accuracy(valid_prediction.eval(), valid_labels))
-    
-#     test_results = test_prediction.eval()
-#     print('Test accuracy: %.3f%%' % accuracy(test_results, test_labels))
-#     pickle.dump(test_results, open(folderpath+'test_results', 'wb'))
-
-#     saver = tf.train.Saver()
-#     saver.save(session, folderpath+'my-model')
-
-
-# # # Running Model on Submission Set
-# # print('Evaluating Submission Set')
-# # with tf.Session(graph=graph) as session:
-# #     saver = tf.train.Saver()
-# #     saver.restore(session, folderpath+'my-model')
-
-# #     tf_submit_dataset = tf.constant(submit_dataset)
-# #     submit_prediction = tf.nn.sigmoid(model(tf_submit_dataset))
-# #     submission = submit_prediction.eval()
-# #     pickle.dump(submission, open(folderpath+'submission', 'wb'))
-
-
-# # # Outputting Predictions to Csv
-# # print('Outputting Predictions')
-# # y_predictions = pickle.load(open(folderpath+'submission', 'rb'))
-# # preds = [' '.join( [labels[idx] for idx, val in enumerate(y_pred_row) if val > confidence_cutoff] ) for y_pred_row in y_predictions]
-
-# # subm = pd.DataFrame()
-# # subm['image_name'] = test.image_name.values
-# # subm['tags'] = preds
-# # subm.to_csv(folderpath+'submission.csv', index=False)
 
 
 
