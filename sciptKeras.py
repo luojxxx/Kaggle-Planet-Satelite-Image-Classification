@@ -5,8 +5,6 @@ import random
 import pickle
 from tqdm import tqdm
 
-import tensorflow as tf
-
 import scipy
 from sklearn.metrics import fbeta_score
 from sklearn.metrics import f1_score
@@ -372,13 +370,15 @@ def getLabelDistribution(labels, labelNameArray):
     return labelNameCount, labelCount
 
 def getPrecision(labels, predictions):
-    Tp = 0
-    Fp = 0
+    # False positive is a negative label but positive prediction
+    Tp = float(0)
+    Fp = float(0)
     for label, prediction in zip(labels, predictions):
-        if label==1 and prediction==1:
-            Tp += 1
-        if label==0 and prediction==1:
-            Fp += 1
+        for idx in range(0, len(label)):
+            if label[idx]==1 and prediction[idx]==1:
+                Tp += 1
+            if label[idx]==0 and prediction[idx]==1:
+                Fp += 1
 
     if Tp+Fp == 0:
         return 1
@@ -386,18 +386,35 @@ def getPrecision(labels, predictions):
     return (Tp / ( Tp + Fp ))
 
 def getRecall(labels, predictions):
-    Tp = 0
-    Fn = 0
+    # False negative is a positive label but negative prediction
+    Tp = float(0)
+    Fn = float(0)
     for label, prediction in zip(labels, predictions):
-        if label==1 and prediction==1:
-            Tp += 1
-        if label==1 and prediction==0:
-            Fn += 1
+        for idx in range(0, len(label)):
+            if label[idx]==1 and prediction[idx]==1:
+                Tp += 1
+            if label[idx]==1 and prediction[idx]==0:
+                Fn += 1
 
     if Tp+Fn == 0:
         return 1
-
+    
     return (Tp / ( Tp + Fn ))
+
+assert_label = [
+[0,0,0],
+[0,1,0],
+[0,1,0]
+]
+
+assert_pred = [
+[0,0,0],
+[0,0,1],
+[1,1,0]
+]
+
+assert getPrecision(assert_label, assert_pred) == float(1)/3
+assert getRecall(assert_label, assert_pred) == 0.5
 
 def getPrecisionRecall(labels, predictions, labelNames):
     precision = [ getPrecision(labels[:, col], predictions[:, col]) for col in range(0, len(labels[0])) ]
@@ -445,17 +462,7 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-assert_label = [
-[0,0,0],
-[0,1,0],
-[0,1,0]
-]
 
-assert_pred = [
-[0,0,0],
-[0,0,1],
-[1,1,0]
-]
 
 # Labels 
 # ['selective_logging', 'conventional_mine', 'partly_cloudy',
