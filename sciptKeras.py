@@ -420,7 +420,7 @@ def getPrecisionRecall(labels, predictions, labelNames):
     precision = [ getPrecision(labels[:, col], predictions[:, col]) for col in range(0, len(labels[0])) ]
     recall = [ getRecall(labels[:, col], predictions[:, col]) for col in range(0, len(labels[0])) ]
     precision = np.array(precision)
-    recall = np.array(precision)
+    recall = np.array(recall)
     # npPR = np.vstack((precision, recall))
     # npPR = npPR.transpose()
 
