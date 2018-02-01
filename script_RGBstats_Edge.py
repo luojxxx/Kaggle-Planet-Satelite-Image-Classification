@@ -5,6 +5,8 @@ import random
 import pickle
 from tqdm import tqdm
 
+import tensorflow as tf
+
 import scipy
 from sklearn.metrics import fbeta_score
 from sklearn.metrics import f1_score
@@ -14,7 +16,6 @@ from sklearn.ensemble import RandomForestClassifier
 
 from PIL import Image
 import cv2
-
 from matplotlib import pyplot as plt
 
 # Potential additions edge and line analysis can be combined with RGB statistics.
@@ -32,7 +33,6 @@ random.seed(random_seed)
 np.random.seed(random_seed)
 
 # Load data
-print('Loading')
 folderpath = '/Users/cloudlife/GitHub/kaggleplanet/'
 train_path = folderpath+'train-jpg/'
 test_path = folderpath+'test-jpg/'
@@ -61,28 +61,11 @@ def getEdges(df, data_path):
         img = cv2.imread( data_path + image_name + '.jpg' , 0)
         edges = cv2.Canny( img, 5, 25)
 
-        # edges_small = cv2.resize(edges, (0,0), fx=0.25, fy=0.25)
-        # edgeIndices = edges_small > 125
-        # edges_small[edgeIndices] = 1
+        edges_small = cv2.resize(edges, (0,0), fx=0.25, fy=0.25)
+        edgeIndices = edges_small > 125
+        edges_small[edgeIndices] = 1
 
-        edgeCountArr.append( edges )
-    
-    return np.array(edgeCountArr)
-
-def getEdgesCount(df, data_path):
-    im_features = df.copy()
-
-    edgeCountArr = []
-
-    for image_name in tqdm(im_features.image_name.values, mininterval=10): 
-        img = cv2.imread( data_path + image_name + '.jpg' , 0)
-        edges = cv2.Canny( img, 5, 25)
-
-        # edges_small = cv2.resize(edges, (0,0), fx=0.25, fy=0.25)
-        # edgeIndices = edges_small > 125
-        # edges_small[edgeIndices] = 1
-
-        edgeCountArr.append( np.array([np.sum(edges / 255)]) )
+        edgeCountArr.append( np.array([np.sum(edges_small)]) )
     
     return np.array(edgeCountArr)
 
@@ -99,10 +82,10 @@ def getLines(df, data_path):
     for image_name in tqdm(im_features.image_name.values, mininterval=10): 
         img = cv2.imread( data_path + image_name + '.jpg' , 0)
 
-        edges = cv2.Canny( img, 100, 125)
-        # edges_small = cv2.resize(edges, (0,0), fx=0.25, fy=0.25)
+        edges = cv2.Canny( img, 5, 25)
+        edges_small = cv2.resize(edges, (0,0), fx=0.25, fy=0.25)
 
-        lines = cv2.HoughLinesP(edges,1,np.pi/180,25,minLineLength=25,maxLineGap=50)
+        lines = cv2.HoughLinesP(edges_small,1,np.pi/180,100,minLineLength=100,maxLineGap=10)
         if lines is None:
             lineDistanceArr.append(  np.array([0]) )
         else:
@@ -243,41 +226,42 @@ if rerun == True or not os.path.isfile(saveImgRawPath):
     train_ImgLine = getLines(train, train_path)
     train_ImgCorner = getCorners(train, train_path)
     train_ImgStats = extract_features(train, train_path)
-    train_ImgRaw = get_raw(train, train_path)
+    # train_ImgRaw = get_raw(train, train_path)
 
     pickle.dump(train_ImgEdge, open( saveImgEdgePath , 'wb'))
     pickle.dump(train_ImgLine, open( saveImgLinePath , 'wb'))
     pickle.dump(train_ImgCorner, open( saveImgCornerPath , 'wb'))
     pickle.dump(train_ImgStats, open( saveImgStatsPath , 'wb'))
-    pickle.dump(train_ImgRaw, open( saveImgRawPath , 'wb'))
+    # pickle.dump(train_ImgRaw, open( saveImgRawPath , 'wb'))
 
     submission_ImgEdge = getEdges(test, test_path)
     submission_ImgLine = getLines(test, test_path)
     submission_ImgCorner = getCorners(test, test_path)
     submission_ImgStats = extract_features(test, test_path)
-    submission_ImgRaw = get_raw(test, test_path)
+    # submission_ImgRaw = get_raw(test, test_path)
 
     pickle.dump(submission_ImgEdge, open( saveImgEdgePathSubmission , 'wb'))
     pickle.dump(submission_ImgLine, open( saveImgLinePathSubmission , 'wb'))
     pickle.dump(submission_ImgCorner, open( saveImgCornerPathSubmission , 'wb'))
     pickle.dump(submission_ImgStats, open( saveImgStatsPathSubmission , 'wb'))
-    pickle.dump(submission_ImgRaw, open( saveSubmissionImgRawPath , 'wb'))
+    # pickle.dump(submission_ImgRaw, open( saveSubmissionImgRawPath , 'wb'))
 
 else:
     train_ImgEdge = pickle.load(open(saveImgEdgePath, 'rb'))
     train_ImgLine = pickle.load(open(saveImgLinePath, 'rb'))
     train_ImgCorner = pickle.load(open(saveImgCornerPath, 'rb'))
     train_ImgStats = pickle.load(open(saveImgStatsPath, 'rb'))
-    train_ImgRaw = pickle.load(open(saveImgRawPath, 'rb'))
+    # train_ImgRaw = pickle.load(open(saveImgRawPath, 'rb'))
 
     submission_ImgEdge = pickle.load(open(saveImgEdgePathSubmission, 'rb'))
     submission_ImgLine = pickle.load(open(saveImgLinePathSubmission, 'rb'))
     submission_ImgCorner = pickle.load(open(saveImgCornerPathSubmission, 'rb'))
     submission_ImgStats = pickle.load(open(saveImgStatsPathSubmission, 'rb'))
-    submission_ImgRaw = pickle.load(open(saveSubmissionImgRawPath, 'rb'))
+    # submission_ImgRaw = pickle.load(open(saveSubmissionImgRawPath, 'rb'))
 
-# X = np.hstack((train_ImgEdge, train_ImgLine, train_ImgCorner, train_ImgStats))
-X = train_ImgEdge
+X = np.hstack((train_ImgEdge, train_ImgLine, train_ImgCorner, train_ImgStats))
+# X = np.hstack((train_ImgEdge, train_ImgLine, train_ImgCorner))
+
 print('Setup Dataset Labels')
 y_train = []
 
@@ -303,47 +287,26 @@ print('X.shape = ' + str(X.shape))
 # A training array of 0 or 1s to represent label
 print('y.shape = ' + str(y.shape))
 
-
 # Splitting training set into training and validation set
 print('Training for validation and test set predictions')
 train_dataset, valid_dataset, test_dataset = splitSet(X, 0.6, 0.8)
 train_labels, valid_labels, test_labels = splitSet(y, 0.6, 0.8)
 
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Activation, Flatten
-from keras.layers import Conv2D, MaxPooling2D
-from keras.optimizers import SGD
-from keras.callbacks import ModelCheckpoint
+clf = RandomForestClassifier(n_estimators=100)
 
-model = Sequential()
-model.add(Conv2D(32, kernel_size=(3, 3),padding='same',input_shape=( 64,64,1)))
-model.add(Activation('relu'))
-model.add(Conv2D(64, (3, 3)))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.25))
+clf = clf.fit(train_dataset, train_labels)
 
-model.add(Conv2D(64,(3, 3), padding='same'))
-model.add(Activation('relu'))
-model.add(Conv2D(64, 3, 3))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.25))
 
-model.add(Flatten())
-model.add(Dense(512))
-model.add(Activation('relu'))
-model.add(Dropout(0.5))
-model.add(Dense(17))
-model.add(Activation('sigmoid'))
+print('Validation Set Weighted F1 Scores')
+validation_prediction = np.array( [ clf.predict(test_chip.reshape(1,-1))[0] for test_chip in tqdm(valid_dataset, mininterval=10) ] ).astype(int)
+f1_validation = f1_score(valid_labels, validation_prediction, average='weighted' )
+print(f1_validation)
 
-sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-model.compile(loss='binary_crossentropy', optimizer=sgd, metrics=['accuracy'])
-check = ModelCheckpoint("weights.{epoch:02d}-{val_acc:.5f}.hdf5", monitor='val_acc', verbose=1, save_best_only=True, save_weights_only=True, mode='auto')
-model.fit(train_dataset, train_labels, batch_size=32, nb_epoch=1,callbacks=[check],validation_data=(valid_dataset,valid_labels))
 
-# validation_predictions = model.predict(valid_dataset, batch_size=128)
-test_predictions = model.predict(test_dataset, batch_size=128)
+print('Test Set Weighted F1 Scores')
+test_prediction = np.array( [ clf.predict(test_chip.reshape(1,-1))[0] for test_chip in tqdm(test_dataset, mininterval=10) ] ).astype(int)
+f1_test = f1_score(test_labels, test_prediction, average='weighted' )
+print(f1_test)
 
 
 # # Making Final Predictions using all training data
@@ -370,15 +333,13 @@ def getLabelDistribution(labels, labelNameArray):
     return labelNameCount, labelCount
 
 def getPrecision(labels, predictions):
-    # False positive is a negative label but positive prediction
-    Tp = float(0)
-    Fp = float(0)
+    Tp = 0
+    Fp = 0
     for label, prediction in zip(labels, predictions):
-        for idx in range(0, len(label)):
-            if label[idx]==1 and prediction[idx]==1:
-                Tp += 1
-            if label[idx]==0 and prediction[idx]==1:
-                Fp += 1
+        if label==1 and prediction==1:
+            Tp += 1
+        if label==0 and prediction==1:
+            Fp += 1
 
     if Tp+Fp == 0:
         return 1
@@ -386,41 +347,24 @@ def getPrecision(labels, predictions):
     return (Tp / ( Tp + Fp ))
 
 def getRecall(labels, predictions):
-    # False negative is a positive label but negative prediction
-    Tp = float(0)
-    Fn = float(0)
+    Tp = 0
+    Fn = 0
     for label, prediction in zip(labels, predictions):
-        for idx in range(0, len(label)):
-            if label[idx]==1 and prediction[idx]==1:
-                Tp += 1
-            if label[idx]==1 and prediction[idx]==0:
-                Fn += 1
+        if label==1 and prediction==1:
+            Tp += 1
+        if label==1 and prediction==0:
+            Fn += 1
 
     if Tp+Fn == 0:
         return 1
-    
+
     return (Tp / ( Tp + Fn ))
-
-assert_label = [
-[0,0,0],
-[0,1,0],
-[0,1,0]
-]
-
-assert_pred = [
-[0,0,0],
-[0,0,1],
-[1,1,0]
-]
-
-assert getPrecision(assert_label, assert_pred) == float(1)/3
-assert getRecall(assert_label, assert_pred) == 0.5
 
 def getPrecisionRecall(labels, predictions, labelNames):
     precision = [ getPrecision(labels[:, col], predictions[:, col]) for col in range(0, len(labels[0])) ]
     recall = [ getRecall(labels[:, col], predictions[:, col]) for col in range(0, len(labels[0])) ]
     precision = np.array(precision)
-    recall = np.array(recall)
+    recall = np.array(precision)
     # npPR = np.vstack((precision, recall))
     # npPR = npPR.transpose()
 
@@ -430,7 +374,7 @@ def getPrecisionRecall(labels, predictions, labelNames):
 
 _, labelCounts = getLabelDistribution(test_labels, labels)
 labelPercentage = np.array( [ np.array([ count / np.sum(labelCounts) ]) for count in labelCounts ] )
-_, precision, recall = getPrecisionRecall(test_labels, test_predictions, labels)
+_, precision, recall = getPrecisionRecall(test_labels, test_prediction, labels)
 
 fig, ax = plt.subplots()
 index = np.arange(len(labels))
@@ -463,7 +407,6 @@ plt.tight_layout()
 plt.show()
 
 
-
 # Labels 
 # ['selective_logging', 'conventional_mine', 'partly_cloudy',
 #        'artisinal_mine', 'haze', 'slash_burn', 'primary', 'clear',
@@ -475,8 +418,4 @@ plt.show()
 #  'road': 8076.0, 'primary': 37840.0, 'clear': 28203.0, 'haze': 2695.0, 'agriculture': 12338.0, 'cultivation': 4477.0, 
 #  'partly_cloudy': 7251.0, 'bare_ground': 859.0, 'conventional_mine': 100.0, 'artisinal_mine': 339.0, 
 #  'habitation': 3662.0, 'blow_down': 98.0}
-
-
-
-
 
